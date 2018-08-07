@@ -15,7 +15,9 @@ This library is used by Data-Forge Plot and Data-Forge Notebook to expand a data
 
 ## Creating a template
 
-todo
+A template is a directory that contains template files that will be inflated with data when the template is expanded.
+
+This repository contains an example template under the test-template directory. Please use this to understand the basics of how a template is constructed.
 
 ## Programmatic Usage
 
@@ -61,4 +63,19 @@ Expand to disk:
 
 ## Command line usage
 
-todo
+This can also be used from the command line to test export templates.
+
+Before using from the command line make sure your template contains a 'test-data.json' that is used to fill out the template.
+
+To use from the command line please install globally like this:
+
+    npm install -g inflate-template
+
+You can also omit the `-g` and just install locally, but then make sure you prefix all the subsequent commands with `npx`.
+
+To inflate and export a template:
+
+    inflate-template export --template=<path-to-your-web-page-template> --out="<path-to-output-your-expanded-template>"
+
+You can also add the `--overwrite` argument to overite an existing export.
+

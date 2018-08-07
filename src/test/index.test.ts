@@ -1,6 +1,7 @@
 const chai = require('chai')
 chai.use(require("chai-as-promised"));
 const expect = chai.expect;
+import * as path from 'path';
 
 import 'mocha';
 import { inflateTemplate, exportTemplate } from '../index';
@@ -101,7 +102,8 @@ describe('export', () => {
         const template = await inflateTemplate(data, options);
         const file = template.find("file-1.txt");
         expect(file).not.to.be.null;
-        expect(file!.expand()).to.eql("f1");
+        const expandedContent = await file!.expand();
+        expect(expandedContent).to.eql("f1");
     });
 
     it('finding a non-existing file returns null', async ()  => {

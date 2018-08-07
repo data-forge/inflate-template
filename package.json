@@ -5,7 +5,8 @@
     "main": "build/index.js",
     "types": "build/index.d.ts",
     "scripts": {
-        "start": "ts-node src/index.ts",
+        "start": "ts-node src/index.ts test",
+        "cli-test": "ts-node src/index.ts export --template=test-template --out=test-output --overwrite",
         "clean": "rm -rf build/*",
         "build": "tsc",
         "clean-build": "rm -rf build/* && tsc",
@@ -30,11 +31,12 @@
     },
     "homepage": "https://github.com/data-forge/export#readme",
     "dependencies": {
+        "chai": "4.1.2",
         "fs-extra": "^7.0.0",
         "globby": "^8.0.1",
         "handlebars": "^4.0.11",
         "promisify-any": "^2.0.1",
-        "chai": "4.1.2"
+        "yargs": "^12.0.1"
     },
     "devDependencies": {
         "@types/chai": "4.0.4",
@@ -43,6 +45,7 @@
         "@types/handlebars": "^4.0.39",
         "@types/mocha": "2.2.43",
         "@types/node": "8.0.28",
+        "@types/yargs": "^11.1.1",
         "chai-as-promised": "^7.1.1",
         "mocha": "3.5.3",
         "mock-fs": "^4.5.0",
