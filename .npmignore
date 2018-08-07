@@ -9,3 +9,5 @@ build/test/
 todo.txt
 .nyc_output/
 tsconfig.json
+test-output/
+test-template

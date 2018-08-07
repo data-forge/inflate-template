@@ -1,14 +1,12 @@
-import { assert, expect } from 'chai';
+const chai = require('chai')
+chai.use(require("chai-as-promised"));
+const expect = chai.expect;
+
 import 'mocha';
 import { inflateTemplate, exportTemplate } from '../index';
 
-const mock = require('mock-fs');
 
-//test:
-//  - can expand single file
-//  - can expand multiple files
-//  - can expand files in nested sub-dir
-//  - can expand files in memory only
+const mock = require('mock-fs');
 
 describe('export', () => {
 
@@ -16,6 +14,24 @@ describe('export', () => {
         mock.restore();
     });
 
+    it("error when template directory not found", async ()  => {
+
+        const testFileContent = "some test content!!";
+
+        mock({
+            "c:/test": {
+                // No sub directories or files.
+            },
+        });        
+
+        const data = {};
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        await expect(inflateTemplate(data, options)).to.be.rejected;
+    });
+    
     it('can inflate one file in memory', async ()  => {
 
         const testFileContent = "some test content!!";
@@ -67,6 +83,44 @@ describe('export', () => {
         const fileContent2 = await template.files[1].expand();
         expect(fileContent2).to.eql(testFileContent2);
     });
+    
+    it('can expand a particular named file', async ()  => {
+
+        mock({
+            "c:/test/my-template": {
+                "file-1.txt": "f1",
+                "file-2.txt": "f2",
+            },
+        });        
+
+        const data = {};
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        const template = await inflateTemplate(data, options);
+        const file = template.find("file-1.txt");
+        expect(file).not.to.be.null;
+        expect(file!.expand()).to.eql("f1");
+    });
+
+    it('finding a non-existing file returns null', async ()  => {
+
+        mock({
+            "c:/test/my-template": {
+                "file-1.txt": "f1",
+                "file-2.txt": "f2",
+            },
+        });        
+
+        const data = {};
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        const template = await inflateTemplate(data, options);
+        expect(template.find("non-existing-file.txt")).to.be.null;
+    });
 
     it('can inflate nested files in memory', async ()  => {
 
@@ -112,5 +166,44 @@ describe('export', () => {
         expect(template.files.length).to.eql(1);
         const fileContent = await template.files[0].expand();
         expect(fileContent).to.eql("some excellent content!!");
+    });
+
+    it('error when output to directory that already exists', async ()  => {
+
+        mock({
+            "c:/test/my-template": {
+                "some-file.txt": "blah",
+            },
+            "c:/test/output": { // Output directory already created.
+                "some-file.txt": "blah",
+            },
+        });        
+
+        const data = {};
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        await expect(exportTemplate(data, "c:/test/output", options)).to.be.rejected;
+    });
+
+    it('can overwrite directory that already exists', async ()  => {
+
+        mock({ //TODO: I should do I my pull request on mock that allows me to spy on the function. I could then test this module more fully.
+            "c:/test/my-template": {
+                "some-file.txt": "blah",
+            },
+            "c:/test/output": { // Output directory already created.
+                "some-file.txt": "blah",
+            },
+        });        
+
+        const data = {};
+        const options = {
+            templatePath: "c:/test/my-template",
+            overwrite: true,
+        };
+
+        await expect(exportTemplate(data, "c:/test/output", options)).to.be.fulfilled;
     });
 });
