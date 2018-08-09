@@ -38,6 +38,11 @@ export interface ITemplateFile {
 class TemplateFile implements ITemplateFile {
 
     //
+    // Set to true to expand the template file.
+    //
+    private allowExpand: boolean;
+
+    //
     // Data injected into the template.
     //
     private data: any;
@@ -57,11 +62,12 @@ class TemplateFile implements ITemplateFile {
      */
     relativePath: string;
 
-    constructor(data: any, options: IExportOptions, filePath: string, assetsPath: string) {
+    constructor(data: any, options: IExportOptions, filePath: string, assetsPath: string, allowExpand: boolean) {
         this.data = data;
         this.options = options;
         this.fullPath = filePath;
         this.relativePath = path.relative(assetsPath, filePath);
+        this.allowExpand = allowExpand;
     }
 
     /**
@@ -69,8 +75,17 @@ class TemplateFile implements ITemplateFile {
      */
     async expand(): Promise<string> {
         const templateData = await promisify(fs.readFile)(this.fullPath, 'utf8');
-        const expandedTemplate = Handlebars.compile(templateData)(this.data);
-        return expandedTemplate;
+        if (this.allowExpand) {
+            try {
+                return Handlebars.compile(templateData)(this.data);
+            }
+            catch (err) {
+                throw new Error("Error compiling template file '" + this.fullPath + "'.\r\n" + (err && err.stack || err));
+            }
+        }
+        else {
+            return templateData;
+        }
     }
 
     /**
@@ -145,22 +160,53 @@ class Template implements ITemplate {
             throw new Error("Expected template in '" + this.options.templatePath + "' to contain an '" + assetsDirectoryName + "' sub-directory that contains the templates files to be inflated..");
         }
 
-        const templateFileWildcard = path.join(assetsDirectoryPath, "**/*");
-        const templateFilePaths = await globby([ 
-            templateFileWildcard,
+        const templateConfigFilePath = path.join(this.options.templatePath, "template.json");
+        const templateConfigFileExists = await fs.pathExists(templateConfigFilePath);
+        let noExpandWildcard: string[];
+        if (templateConfigFileExists) {
+            const templateConfigContent = await promisify(fs.readFile)(templateConfigFilePath, "utf8");
+            const templateConfig = JSON.parse(templateConfigContent);
+            if (Array.isArray(templateConfig.noExpand)) {
+                noExpandWildcard = templateConfig.noExpand;
+            }
+            else {
+                noExpandWildcard = [ templateConfig.noExpand ];
+            }
+        }
+        else {
+            noExpandWildcard = [];
+        }
 
-            /*TODO: Want to be able to ignore user-specififed files.
-            "!" + templateConfigFilePath, // Exclude template configuration.
-            "!" + testDataFilePath, // Exclude test data file.
-            */
-        ]);
-        this.files = templateFilePaths
+        const templateFileWildcard = path.join(assetsDirectoryPath, "**/*");
+        const noExpandFileWildcards = noExpandWildcard
+            .map(wildcard => 
+                path.join(assetsDirectoryPath, wildcard)
+            );
+        const templateFileWildcards = [ templateFileWildcard ]
+            .concat(noExpandFileWildcards
+                .map(wildcard => "!" + wildcard)
+            );
+        const filesToInflate = await globby(templateFileWildcards);
+        const otherFiles = await globby(noExpandFileWildcards)
+        this.files = filesToInflate
             .map(templateFilePath => 
                 new TemplateFile(
                     this.data, 
                     this.options, 
                     templateFilePath,
-                    assetsDirectoryPath
+                    assetsDirectoryPath,
+                    true
+                )
+            )
+            .concat(otherFiles
+                .map(noExpandFilePath => 
+                    new TemplateFile(
+                        this.data, 
+                        this.options, 
+                        noExpandFilePath,
+                        assetsDirectoryPath,
+                        false
+                    )
                 )
             );
     }

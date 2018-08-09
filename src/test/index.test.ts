@@ -221,6 +221,65 @@ describe('export', () => {
         expect(fileContent).to.eql("some excellent content!!");
     });
 
+    it('can request files to not be expanded', async ()  => {
+
+        const testFileContent = "this {{won't}} be expanded!!";
+
+        mock({
+            "c:/test/my-template": {
+                "template.json": JSON.stringify({ noExpand: "_no_expand_/**/*" }),
+                "assets": {
+                    "_no_expand_": {
+                        "some-file.txt": testFileContent,
+                    }                    
+                },
+            },
+        });        
+
+        const data = { fooey: 'excellent' };
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        const template = await inflateTemplate(data, options);
+        expect(template.files.length).to.eql(1);
+        const fileContent = await template.files[0].expand();
+        expect(fileContent).to.eql(testFileContent);
+    });
+
+    it('can request array of files to not be expanded', async ()  => {
+
+        const testFileContent = "this {{won't}} be expanded!!";
+
+        mock({
+            "c:/test/my-template": {
+                "template.json": JSON.stringify({ noExpand: [ "_no_expand1_/**/*", "_no_expand2_/**/*" ] }),
+                "assets": {
+                    "_no_expand1_": {
+                        "some-file.txt": testFileContent,
+                    },
+                    "_no_expand2_": {
+                        "some-file.txt": testFileContent,
+                    },
+                },
+            },
+        });        
+
+        const data = {};
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        const template = await inflateTemplate(data, options);
+        expect(template.files.length).to.eql(2);
+
+        const fileContent1 = await template.files[0].expand();
+        expect(fileContent1).to.eql(testFileContent);
+
+        const fileContent2 = await template.files[1].expand();
+        expect(fileContent2).to.eql(testFileContent);
+    });
+
     it('error when output to directory that already exists', async ()  => {
 
         mock({
