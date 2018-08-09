@@ -6,6 +6,10 @@ import * as Handlebars from 'handlebars';
 import { assert } from 'chai';
 import { argv } from 'yargs';
 
+Handlebars.registerHelper('json', context => {
+    return JSON.stringify(context, null, 4);
+});
+
 /**
  * Represents an expanded file in a template.
  */
@@ -76,8 +80,9 @@ class TemplateFile implements ITemplateFile {
      */
     async export(outputPath: string): Promise<void> {
         const expandedContent = await this.expand();
-        await fs.ensureDir(outputPath);
-        await promisify(fs.writeFile)(path.join(outputPath, this.relativePath), expandedContent);
+        const fullOutputPath = path.join(outputPath, this.relativePath);
+        await fs.ensureDir(path.dirname(fullOutputPath));
+        await promisify(fs.writeFile)(fullOutputPath, expandedContent);
     }
 }
 
@@ -132,7 +137,7 @@ class Template implements ITemplate {
         if (!exists) {
             throw new Error("Template path '" + this.options.templatePath + "' does not exist.");
         }
-        
+
         const templateFileWildcard = path.join(this.options.templatePath, "**/*");
         const templateConfigFilePath = path.join(this.options.templatePath, "template.json");
         const testDataFilePath = path.join(this.options.templatePath, "test-data.json");
@@ -160,7 +165,7 @@ class Template implements ITemplate {
      * 
      * @param fileName Name of the file to find.
      */
-    find(fileName: string): ITemplateFile | null {
+    find(fileName: string): ITemplateFile | null { //TODO: Optimize this lookup!
         for (const file of this.files) {
             if (file.relativePath === fileName) {
                 return file;

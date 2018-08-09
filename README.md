@@ -19,6 +19,8 @@ A template is a directory that contains template files that will be inflated wit
 
 This repository contains an example template under the test-template directory. Please use this to understand the basics of how a template is constructed.
 
+A template can contain a template.json configuration file and a test-data.json. Both files by convention are omitted from the expanded template.
+
 ## Programmatic Usage
 
 # Installation
@@ -78,4 +80,5 @@ To inflate and export a template:
     inflate-template export --template=<path-to-your-web-page-template> --out="<path-to-output-your-expanded-template>"
 
 You can also add the `--overwrite` argument to overite an existing export.
+
 
