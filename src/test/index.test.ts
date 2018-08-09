@@ -32,6 +32,25 @@ describe('export', () => {
 
         await expect(inflateTemplate(data, options)).to.be.rejected;
     });
+
+    it('template with 0 files has 0 files', async ()  => {
+
+        const testFileContent = "some test content!!";
+
+        mock({
+            "c:/test/my-template": {
+                // No files in template.
+            },
+        });        
+
+        const data = {};
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        const template = await inflateTemplate(data, options);
+        expect(template.files.length).to.eql(0);
+    });
     
     it('can inflate one file in memory', async ()  => {
 
