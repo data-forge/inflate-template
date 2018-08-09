@@ -221,6 +221,30 @@ describe('export', () => {
         expect(fileContent).to.eql("some excellent content!!");
     });
 
+    it('can expand template with template config', async ()  => {
+
+        const testFileContent = "some {{fooey}} content!!";
+
+        mock({
+            "c:/test/my-template": {
+                "template.json": JSON.stringify({}),
+                "assets": {
+                    "some-file.txt": testFileContent,
+                },
+            },
+        });        
+
+        const data = { fooey: 'excellent' };
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        const template = await inflateTemplate(data, options);
+        expect(template.files.length).to.eql(1);
+        const fileContent = await template.files[0].expand();
+        expect(fileContent).to.eql("some excellent content!!");
+    });
+
     it('can request files to not be expanded', async ()  => {
 
         const testFileContent = "this {{won't}} be expanded!!";

@@ -166,11 +166,16 @@ class Template implements ITemplate {
         if (templateConfigFileExists) {
             const templateConfigContent = await promisify(fs.readFile)(templateConfigFilePath, "utf8");
             const templateConfig = JSON.parse(templateConfigContent);
-            if (Array.isArray(templateConfig.noExpand)) {
-                noExpandWildcard = templateConfig.noExpand;
+            if (templateConfig.noExpand) {
+                if (Array.isArray(templateConfig.noExpand)) {
+                    noExpandWildcard = templateConfig.noExpand;
+                }
+                else {
+                    noExpandWildcard = [ templateConfig.noExpand ];
+                }
             }
             else {
-                noExpandWildcard = [ templateConfig.noExpand ];
+                noExpandWildcard = [];    
             }
         }
         else {
