@@ -33,13 +33,33 @@ describe('export', () => {
         await expect(inflateTemplate(data, options)).to.be.rejected;
     });
 
-    it('template with 0 files has 0 files', async ()  => {
+    it('template with no assets directory causes an error', async ()  => {
 
         const testFileContent = "some test content!!";
 
         mock({
             "c:/test/my-template": {
-                // No files in template.
+                // Assets sub-directory.
+            },
+        });        
+
+        const data = {};
+        const options = {
+            templatePath: "c:/test/my-template",
+        };
+
+        await expect(inflateTemplate(data, options)).to.be.rejected;
+    });
+    
+    it('template with 0 files in assets directory has 0 files', async ()  => {
+
+        const testFileContent = "some test content!!";
+
+        mock({
+            "c:/test/my-template": {
+                "assets": {
+                    // No files in template.
+                },
             },
         });        
 
@@ -51,14 +71,16 @@ describe('export', () => {
         const template = await inflateTemplate(data, options);
         expect(template.files.length).to.eql(0);
     });
-    
+
     it('can inflate one file in memory', async ()  => {
 
         const testFileContent = "some test content!!";
 
         mock({
             "c:/test/my-template": {
-                "some-file.txt": testFileContent,
+                "assets": {
+                    "some-file.txt": testFileContent,
+                },
             },
         });        
 
@@ -82,8 +104,10 @@ describe('export', () => {
 
         mock({
             "c:/test/my-template": {
-                "some-file-1.txt": testFileContent1,
-                "some-file-2.txt": testFileContent2,
+                "assets": {
+                    "some-file-1.txt": testFileContent1,
+                    "some-file-2.txt": testFileContent2,
+                },
             },
         });        
 
@@ -108,8 +132,10 @@ describe('export', () => {
 
         mock({
             "c:/test/my-template": {
-                "file-1.txt": "f1",
-                "file-2.txt": "f2",
+                "assets": {
+                    "file-1.txt": "f1",
+                    "file-2.txt": "f2",
+                },
             },
         });        
 
@@ -129,8 +155,10 @@ describe('export', () => {
 
         mock({
             "c:/test/my-template": {
-                "file-1.txt": "f1",
-                "file-2.txt": "f2",
+                "assets": {
+                    "file-1.txt": "f1",
+                    "file-2.txt": "f2",
+                },
             },
         });        
 
@@ -149,8 +177,10 @@ describe('export', () => {
 
         mock({
             "c:/test/a-template": {
-                "some-dir": {
-                    "some-nested-file.txt": testFileContent,
+                "assets": {
+                    "some-dir": {
+                        "some-nested-file.txt": testFileContent,
+                    },
                 },
             },
         });        
@@ -174,7 +204,9 @@ describe('export', () => {
 
         mock({
             "c:/test/my-template": {
-                "some-file.txt": testFileContent,
+                "assets": {
+                    "some-file.txt": testFileContent,
+                },
             },
         });        
 
@@ -193,7 +225,9 @@ describe('export', () => {
 
         mock({
             "c:/test/my-template": {
-                "some-file.txt": "blah",
+                "assets": {
+                    "some-file.txt": "blah",
+                },
             },
             "c:/test/output": { // Output directory already created.
                 "some-file.txt": "blah",
@@ -212,7 +246,9 @@ describe('export', () => {
 
         mock({ //TODO: I should do I my pull request on mock that allows me to spy on the function. I could then test this module more fully.
             "c:/test/my-template": {
-                "some-file.txt": "blah",
+                "assets": {
+                    "some-file.txt": "blah",
+                },
             },
             "c:/test/output": { // Output directory already created.
                 "some-file.txt": "blah",

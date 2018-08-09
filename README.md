@@ -15,11 +15,11 @@ This library is used by Data-Forge Plot and Data-Forge Notebook to expand a data
 
 ## Creating a template
 
-A template is a directory that contains template files that will be inflated with data when the template is expanded.
+A template is a directory that contains template files that will be inflated with data when the template is expanded. Files to be inflated live under the 'assets' sub-directory in the template directory.
 
 This repository contains an example template under the test-template directory. Please use this to understand the basics of how a template is constructed.
 
-A template can contain a template.json configuration file and a test-data.json. Both files by convention are omitted from the expanded template.
+A template can contain a template.json configuration file and a test-data.json. By convention files in the root directory or any other sub-directory other than the 'assets' sub-directory are not templates files, they can be configuration files, supporting files, build scripts, etc, but they are inflated as part of the template.
 
 ## Programmatic Usage
 

@@ -57,11 +57,11 @@ class TemplateFile implements ITemplateFile {
      */
     relativePath: string;
 
-    constructor(data: any, options: IExportOptions, filePath: string, templatePath: string) {
+    constructor(data: any, options: IExportOptions, filePath: string, assetsPath: string) {
         this.data = data;
         this.options = options;
         this.fullPath = filePath;
-        this.relativePath = path.relative(templatePath, filePath);
+        this.relativePath = path.relative(assetsPath, filePath);
     }
 
     /**
@@ -133,20 +133,26 @@ class Template implements ITemplate {
     // Read the file system and determine the files in the template.
     //
     async readFiles(): Promise<void> {
-        const exists = await fs.pathExistsSync(this.options.templatePath);
-        if (!exists) {
+        const templateDirectoryExists = await fs.pathExists(this.options.templatePath);
+        if (!templateDirectoryExists) {
             throw new Error("Template path '" + this.options.templatePath + "' does not exist.");
         }
 
-        const templateFileWildcard = path.join(this.options.templatePath, "**/*");
-        const templateConfigFilePath = path.join(this.options.templatePath, "template.json");
-        const testDataFilePath = path.join(this.options.templatePath, "test-data.json");
+        const assetsDirectoryName = "assets";
+        const assetsDirectoryPath = path.join(this.options.templatePath, assetsDirectoryName);
+        const assetsDirectoryExists = await fs.pathExists(assetsDirectoryPath);
+        if (!assetsDirectoryExists) {
+            throw new Error("Expected template in '" + this.options.templatePath + "' to contain an '" + assetsDirectoryName + "' sub-directory that contains the templates files to be inflated..");
+        }
+
+        const templateFileWildcard = path.join(assetsDirectoryPath, "**/*");
         const templateFilePaths = await globby([ 
             templateFileWildcard,
 
-            //TODO: In the future excluded files should be specified in template.json.
+            /*TODO: Want to be able to ignore user-specififed files.
             "!" + templateConfigFilePath, // Exclude template configuration.
             "!" + testDataFilePath, // Exclude test data file.
+            */
         ]);
         this.files = templateFilePaths
             .map(templateFilePath => 
@@ -154,7 +160,7 @@ class Template implements ITemplate {
                     this.data, 
                     this.options, 
                     templateFilePath,
-                    this.options.templatePath,
+                    assetsDirectoryPath
                 )
             );
     }
