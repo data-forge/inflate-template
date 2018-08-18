@@ -1,6 +1,6 @@
 {
     "name": "inflate-template",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "This library is responsible for inflating a template with data. It provides the 'export' functionality of Data-Forge Plot.",
     "main": "build/index.js",
     "types": "build/index.d.ts",

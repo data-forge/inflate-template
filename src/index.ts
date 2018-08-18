@@ -243,6 +243,11 @@ export interface IExportOptions {
     templatePath: string;
 
     /**
+     * Set to true to clean the existing export directory before writting the new one.
+     */
+    clean?: boolean;
+
+    /**
      * Set to true to allow the output path to be overwritten.
      * Defaults to false.
      */
@@ -275,10 +280,12 @@ export async function exportTemplate (data: any, outputPath: string, options: IE
     const exists = await fs.pathExists(outputPath);
     if (exists) {
         if (options.overwrite) {
-            await fs.remove(outputPath);
+            if (options.clean) {
+                await fs.remove(outputPath); // Overwrite and clean.
+            }
         }
         else {
-            throw new Error("Output path '" + outputPath + "' already exists.");
+            throw new Error("Output path '" + outputPath + "' already exists."); // Export already exists.
         }
     }
 
