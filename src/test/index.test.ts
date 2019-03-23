@@ -4,22 +4,23 @@ const expect = chai.expect;
 import * as path from 'path';
 
 import 'mocha';
-import { inflateTemplate, exportTemplate } from '../index';
+import { inflateTemplate, exportTemplate, TemplateFile, Template } from '../index';
 
+const mockFs = require('mock-fs');
 
-const mock = require('mock-fs');
+describe('export', function (this: any) {
 
-describe('export', () => {
+    this.timeout(10000);
 
     afterEach(() => {
-        mock.restore();
+        mockFs.restore();
     });
 
     it("error when template directory not found", async ()  => {
 
         const testFileContent = "some test content!!";
 
-        mock({
+        mockFs({
             "c:/test": {
                 // No sub directories or files.
             },
@@ -27,35 +28,34 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        await expect(inflateTemplate(data, options)).to.be.rejected;
+        await expect(inflateTemplate("c:/test/my-template", data, options)).to.be.rejected;
     });
 
     it('template with no assets directory causes an error', async ()  => {
 
         const testFileContent = "some test content!!";
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 // Assets sub-directory.
             },
-        });        
+        });
+
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        await expect(inflateTemplate(data, options)).to.be.rejected;
+        await expect(inflateTemplate("c:/test/my-template", data, options)).to.be.rejected;
     });
     
     it('template with 0 files in assets directory has 0 files', async ()  => {
 
         const testFileContent = "some test content!!";
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "assets": {
                     // No files in template.
@@ -65,10 +65,10 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
+
         expect(template.files.length).to.eql(0);
     });
 
@@ -76,7 +76,7 @@ describe('export', () => {
 
         const testFileContent = "some test content!!";
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "assets": {
                     "some-file.txt": testFileContent,
@@ -86,10 +86,9 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
         expect(template.files.length).to.eql(1);
         expect(template.files[0].relativePath).to.eql("some-file.txt");
         
@@ -102,7 +101,7 @@ describe('export', () => {
         const testFileContent1 = "test 1";
         const testFileContent2 = "test 2";
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "assets": {
                     "some-file-1.txt": testFileContent1,
@@ -113,10 +112,9 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
         expect(template.files.length).to.eql(2);
         expect(template.files[0].relativePath).to.eql("some-file-1.txt");
         expect(template.files[1].relativePath).to.eql("some-file-2.txt");
@@ -130,7 +128,7 @@ describe('export', () => {
     
     it('can expand a particular named file', async ()  => {
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "assets": {
                     "file-1.txt": "f1",
@@ -141,10 +139,9 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
         const file = template.find("file-1.txt");
         expect(file).not.to.be.null;
         const expandedContent = await file!.expand();
@@ -153,7 +150,7 @@ describe('export', () => {
 
     it('finding a non-existing file returns null', async ()  => {
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "assets": {
                     "file-1.txt": "f1",
@@ -164,10 +161,9 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
         expect(template.find("non-existing-file.txt")).to.be.null;
     });
 
@@ -175,7 +171,7 @@ describe('export', () => {
 
         const testFileContent = "nested file content";
 
-        mock({
+        mockFs({
             "c:/test/a-template": {
                 "assets": {
                     "some-dir": {
@@ -187,10 +183,9 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/a-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/a-template", data, options);
         expect(template.files.length).to.eql(1);
         expect(template.files[0].relativePath).to.eql("some-dir\\some-nested-file.txt");
         
@@ -202,7 +197,7 @@ describe('export', () => {
 
         const testFileContent = "some {{fooey}} content!!";
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "assets": {
                     "some-file.txt": testFileContent,
@@ -212,10 +207,9 @@ describe('export', () => {
 
         const data = { fooey: 'excellent' };
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
         expect(template.files.length).to.eql(1);
         const fileContent = await template.files[0].expand();
         expect(fileContent).to.eql("some excellent content!!");
@@ -225,7 +219,7 @@ describe('export', () => {
 
         const testFileContent = "some {{fooey}} content!!";
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "template.json": JSON.stringify({}),
                 "assets": {
@@ -236,10 +230,9 @@ describe('export', () => {
 
         const data = { fooey: 'excellent' };
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
         expect(template.files.length).to.eql(1);
         const fileContent = await template.files[0].expand();
         expect(fileContent).to.eql("some excellent content!!");
@@ -249,7 +242,7 @@ describe('export', () => {
 
         const testFileContent = "this {{won't}} be expanded!!";
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "template.json": JSON.stringify({ noExpand: "_no_expand_/**/*" }),
                 "assets": {
@@ -262,10 +255,9 @@ describe('export', () => {
 
         const data = { fooey: 'excellent' };
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
         expect(template.files.length).to.eql(1);
         const fileContent = await template.files[0].expand();
         expect(fileContent).to.eql(testFileContent);
@@ -275,7 +267,7 @@ describe('export', () => {
 
         const testFileContent = "this {{won't}} be expanded!!";
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "template.json": JSON.stringify({ noExpand: [ "_no_expand1_/**/*", "_no_expand2_/**/*" ] }),
                 "assets": {
@@ -291,10 +283,9 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        const template = await inflateTemplate(data, options);
+        const template = await inflateTemplate("c:/test/my-template", data, options);
         expect(template.files.length).to.eql(2);
 
         const fileContent1 = await template.files[0].expand();
@@ -306,7 +297,7 @@ describe('export', () => {
 
     it('error when output to directory that already exists', async ()  => {
 
-        mock({
+        mockFs({
             "c:/test/my-template": {
                 "assets": {
                     "some-file.txt": "blah",
@@ -319,15 +310,14 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
         };
 
-        await expect(exportTemplate(data, "c:/test/output", options)).to.be.rejected;
+        await expect(exportTemplate("c:/test/my-template", data, "c:/test/output", options)).to.be.rejected;
     });
 
     it('can overwrite directory that already exists', async ()  => {
 
-        mock({ //TODO: I should do I my pull request on mock that allows me to spy on the function. I could then test this module more fully.
+        mockFs({
             "c:/test/my-template": {
                 "assets": {
                     "some-file.txt": "blah",
@@ -340,10 +330,52 @@ describe('export', () => {
 
         const data = {};
         const options = {
-            templatePath: "c:/test/my-template",
             overwrite: true,
         };
 
-        await expect(exportTemplate(data, "c:/test/output", options)).to.be.fulfilled;
+        await expect(exportTemplate("c:/test/my-template", data, "c:/test/output", options)).to.be.fulfilled;
+    });
+
+    it('can expand in memory file', async ()  => {
+
+        const fileContent = "some-great-content";
+        const templateFile = new TemplateFile({}, "c:/test/my-template/some-file.txt", "c:/test/my-template", true, fileContent);
+        const expanded = await templateFile.expand();
+        expect(expanded).to.eql(fileContent);
+    });
+
+    it('can expand in memory file with data', async ()  => {
+
+        const fileContent = "{{some}}";
+        const expandedContent = "my-expanded-data";
+        const templateFile = new TemplateFile({ some: expandedContent }, "c:/test/my-template/some-file.txt", "c:/test/my-template", true, fileContent);
+        const expanded = await templateFile.expand();
+        expect(expanded).to.eql(expandedContent);
+    });
+
+    it("in memory files are expanded in the template", async () => {
+
+        const fileName = "a file.txt";
+        const fileContent = "some-great-content";
+        const template = new Template("c:/test/my-template", {}, { 
+            inMemoryFiles: [
+                {
+                    file: fileName,
+                    content: fileContent,
+                }
+            ],
+        });
+
+        mockFs({
+            "c:/test/my-template": {
+                "assets": {
+                },
+            },
+        });
+        
+        await template.readFiles();
+        const templateFile = template.find(fileName)!;
+        const expanded = await templateFile.expand();
+        expect(expanded).to.eql(fileContent);
     });
 });

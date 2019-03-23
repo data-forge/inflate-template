@@ -11,3 +11,4 @@ todo.txt
 tsconfig.json
 test-output/
 test-template
+*.bak

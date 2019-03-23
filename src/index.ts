@@ -15,27 +15,32 @@ Handlebars.registerHelper('json', context => {
  */
 export interface ITemplateFile {
     /**
-     * Relative path of the file within the tempalte folder..
+     * Relative path of the file within the template folder.
      */
-    relativePath: string;
+    readonly relativePath: string;
+
+    /**
+     * Get the pull path of the template file in the template assets directory.
+     */
+    getFullPath(): string;
 
     /**
      * Expand the files content filling in gaps with data.
      */
-    /*async*/ expand(): Promise<string>;
+    expand(): Promise<string>;
 
     /**
      * Expand and output the file to the output path.
      * 
      * @param outputPath The path to output the file to.
      */
-    /*async*/ export(outputPath: string): Promise<void>;
+    export(outputPath: string): Promise<void>;
 }
 
 //
 // Represents an expanded file in a template.
 //
-class TemplateFile implements ITemplateFile {
+export class TemplateFile implements ITemplateFile {
 
     //
     // Set to true to expand the template file.
@@ -48,44 +53,76 @@ class TemplateFile implements ITemplateFile {
     private data: any;
 
     //
-    // Options to configure the template/export. 
+    // The directory that contains the template files.
     //
-    private options: IExportOptions;
+    private templateAssetsPath: string;
 
     //
-    // Full path to the file.
+    // Content from the file once it has been loaded into memory.
     //
-    private fullPath: string;
+    private fileContent?: string;
+
+    //
+    // Expanded content afer it has been cached.
+    //
+    private expandedContent?: string;
 
     /**
      * The name of the file.
      */
-    relativePath: string;
+    readonly relativePath: string;
 
-    constructor(data: any, options: IExportOptions, filePath: string, assetsPath: string, allowExpand: boolean) {
+    constructor(data: any, relativeFilePath: string, templateAssetsPath: string, allowExpand: boolean, fileContent?: string) {
         this.data = data;
-        this.options = options;
-        this.fullPath = filePath;
-        this.relativePath = path.relative(assetsPath, filePath);
+        this.relativePath = relativeFilePath;
+        this.templateAssetsPath = templateAssetsPath;
         this.allowExpand = allowExpand;
+        this.fileContent = fileContent;
+    }
+
+    /**
+     * Get the pull path of the template file in the template assets directory.
+     */
+    getFullPath(): string {
+        return path.join(this.templateAssetsPath, this.relativePath);
+    }
+    
+    //
+    // Load the file's content into memory (if not already loaded).
+    //
+    private async loadContent(): Promise<string> {
+        if (this.fileContent) {
+            // Already loaded.
+            return this.fileContent;
+        }
+
+        this.fileContent = await promisify(fs.readFile)(this.getFullPath(), 'utf8');
+        return this.fileContent!;
     }
 
     /**
      * Expand the files content filling in gaps with data.
      */
     async expand(): Promise<string> {
-        const templateData = await promisify(fs.readFile)(this.fullPath, 'utf8');
+        if (this.expandedContent) {
+            // Content already expanded.
+            return this.expandedContent; 
+        }
+
+        const fileContent = await this.loadContent();
         if (this.allowExpand) {
             try {
-                return Handlebars.compile(templateData)(this.data);
+                this.expandedContent = Handlebars.compile(fileContent)(this.data);
             }
             catch (err) {
-                throw new Error("Error compiling template file '" + this.fullPath + "'.\r\n" + (err && err.stack || err));
+                throw new Error("Error compiling template file '" + this.getFullPath() + "'.\r\n" + (err && err.stack || err));
             }
         }
         else {
-            return templateData;
+            this.expandedContent = fileContent;
         }
+
+        return this.expandedContent;
     }
 
     /**
@@ -123,23 +160,30 @@ export interface ITemplate {
 //
 // Represents an inflated template.
 //
-class Template implements ITemplate {
+export class Template implements ITemplate {
+    
+    //
+    // The path from which to read template files.
+    //
+    private templatePath: string;
+
     //
     // Data injected into the template.
     //
     private data: any;
 
     //
-    // Options to configure the template/export. 
+    // Options to configure the template. 
     //
-    private options: IExportOptions;
+    private options: IInflateOptions;
 
     //
     // Files contained in the inflated template.
     //
     files: ITemplateFile[] = [];
 
-    constructor(data: any, options: IExportOptions) {
+    constructor(templatePath: string, data: any, options: IInflateOptions) {
+        this.templatePath = templatePath;
         this.data = data;
         this.options = options;
     }
@@ -148,19 +192,19 @@ class Template implements ITemplate {
     // Read the file system and determine the files in the template.
     //
     async readFiles(): Promise<void> {
-        const templateDirectoryExists = await fs.pathExists(this.options.templatePath);
+        const templateDirectoryExists = await fs.pathExists(this.templatePath);
         if (!templateDirectoryExists) {
-            throw new Error("Template path '" + this.options.templatePath + "' does not exist.");
+            throw new Error("Template path '" + this.templatePath + "' does not exist.");
         }
 
         const assetsDirectoryName = "assets";
-        const assetsDirectoryPath = path.join(this.options.templatePath, assetsDirectoryName);
-        const assetsDirectoryExists = await fs.pathExists(assetsDirectoryPath);
-        if (!assetsDirectoryExists) {
-            throw new Error("Expected template in '" + this.options.templatePath + "' to contain an '" + assetsDirectoryName + "' sub-directory that contains the templates files to be inflated..");
+        const templateAssetsDirectoryPath = path.join(this.templatePath, assetsDirectoryName);
+        const templateAssetsDirectoryExists = await fs.pathExists(templateAssetsDirectoryPath);
+        if (!templateAssetsDirectoryExists) {
+            throw new Error("Expected template in '" + this.templatePath + "' to contain an '" + assetsDirectoryName + "' sub-directory that contains the templates files to be inflated..");
         }
 
-        const templateConfigFilePath = path.join(this.options.templatePath, "template.json");
+        const templateConfigFilePath = path.join(this.templatePath, "template.json");
         const templateConfigFileExists = await fs.pathExists(templateConfigFilePath);
         let noExpandWildcard: string[];
         if (templateConfigFileExists) {
@@ -182,10 +226,10 @@ class Template implements ITemplate {
             noExpandWildcard = [];
         }
 
-        const templateFileWildcard = path.join(assetsDirectoryPath, "**/*");
+        const templateFileWildcard = path.join(templateAssetsDirectoryPath, "**/*");
         const noExpandFileWildcards = noExpandWildcard
             .map(wildcard => 
-                path.join(assetsDirectoryPath, wildcard)
+                path.join(templateAssetsDirectoryPath, wildcard)
             );
         const templateFileWildcards = [ templateFileWildcard ]
             .concat(noExpandFileWildcards
@@ -197,9 +241,8 @@ class Template implements ITemplate {
             .map(templateFilePath => 
                 new TemplateFile(
                     this.data, 
-                    this.options, 
-                    templateFilePath,
-                    assetsDirectoryPath,
+                    path.relative(templateAssetsDirectoryPath, templateFilePath),
+                    templateAssetsDirectoryPath,
                     true
                 )
             )
@@ -207,12 +250,23 @@ class Template implements ITemplate {
                 .map(noExpandFilePath => 
                     new TemplateFile(
                         this.data, 
-                        this.options, 
-                        noExpandFilePath,
-                        assetsDirectoryPath,
+                        path.relative(templateAssetsDirectoryPath, noExpandFilePath),
+                        templateAssetsDirectoryPath,
                         false
                     )
                 )
+            )
+            .concat(this.options.inMemoryFiles 
+                ? this.options.inMemoryFiles.map(inMemoryFile => 
+                    new TemplateFile(
+                        this.data,
+                        inMemoryFile.file,
+                        templateAssetsDirectoryPath,
+                        true,
+                        inMemoryFile.content
+                    )
+                )
+                : []
             );
     }
 
@@ -234,13 +288,35 @@ class Template implements ITemplate {
 }
 
 /**
+ * A file whose content is already loaded in memory.
+ */
+export interface IInMemoryFile {
+    /**
+     * The name of the file.
+     */
+    file: string;
+
+    /**
+     * The content of the file.
+     */
+    content: string;
+}
+
+/**
+ * Options for inflating a template.
+ */
+export interface IInflateOptions {
+
+    /**
+     * Files that are already loaded into memory.
+     */
+    inMemoryFiles?: IInMemoryFile[];
+}
+
+/**
  * Options for exporting a template.
  */
-export interface IExportOptions {
-    /***
-     * The path that contains the template to expand.
-     */
-    templatePath: string;
+export interface IExportOptions extends IInflateOptions {
 
     /**
      * Set to true to clean the existing export directory before writting the new one.
@@ -257,13 +333,14 @@ export interface IExportOptions {
 /**
  * Inflate a template in memory.
  * 
+ * @param templatePath The path to load the template from.
  * @param data The data to expand the template.
  * @param options Various options.
  * 
  * @returns An inflated template.
  */
-export async function inflateTemplate(data: any, options: IExportOptions): Promise<ITemplate> {
-    const template = new Template(data, options);
+export async function inflateTemplate(templatePath: string, data: any, options: IInflateOptions): Promise<ITemplate> {
+    const template = new Template(templatePath, data, options);
     await template.readFiles();
     return template;
 }
@@ -272,11 +349,12 @@ export async function inflateTemplate(data: any, options: IExportOptions): Promi
  * Do a full export. Inflate the specified template with data and write all expanded files to the
  * specified output directory.
  * 
+ * @param templatePath The path to load the template from.
  * @param data The data to expand the template.
  * @param outputPath The path to output expanded files to.
  * @param options Various options.
  */
-export async function exportTemplate (data: any, outputPath: string, options: IExportOptions): Promise<void> {
+export async function exportTemplate (templatePath: string, data: any, outputPath: string, options: IExportOptions): Promise<void> {
     const exists = await fs.pathExists(outputPath);
     if (exists) {
         if (options.overwrite) {
@@ -291,7 +369,7 @@ export async function exportTemplate (data: any, outputPath: string, options: IE
 
     await fs.ensureDir(outputPath);
     
-    const template = await inflateTemplate(data, options);
+    const template = await inflateTemplate(templatePath, data, options);
     for (const file of template.files) {
         await file.export(outputPath);
     }   
@@ -318,10 +396,10 @@ async function loadTestData(templatePath: string): Promise<any> {
 async function cli_export(templatePath: string, outputPath: string, overwrite: boolean): Promise<void> {
     const testData = await loadTestData(templatePath);
     await exportTemplate(
+        templatePath,
         testData, 
         outputPath, 
         {
-            templatePath: templatePath,
             overwrite: overwrite,
         }
     );
@@ -332,12 +410,12 @@ async function cli_export(templatePath: string, outputPath: string, overwrite: b
 //
 async function testRun(): Promise<void> {
     await exportTemplate(
+        "test-template",
         { 
             msg: "Hello computer" 
         }, 
         "test-output", 
         { 
-            templatePath: "test-template",
             overwrite: true,
         }
     );
