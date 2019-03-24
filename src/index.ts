@@ -155,6 +155,13 @@ export interface ITemplate {
      * @param fileName Name of the file to find.
      */
     find(fileName: string): ITemplateFile | null;
+
+    /**
+     * Expand and export the template to a directory on disk.
+     * 
+     * @param outputPath The path of the directory export the template to.
+     */
+    export(outputPath: string): Promise<void>;
 }
 
 //
@@ -255,26 +262,36 @@ export class Template implements ITemplate {
             );
         const filesToInflate = await globby(templateFileWildcards);
         const otherFiles = await globby(noExpandFileWildcards)
+        
+        const inMemoryFilesSet = new Set<string>();
+        if (this.options && this.options.inMemoryFiles) {
+            for (const inMemoryFile of this.options.inMemoryFiles) {
+                inMemoryFilesSet.add(inMemoryFile.file);
+            }
+        }
+
         this.files = this.inflateInMemoryFiles(templateAssetsDirectoryPath)
             .concat(
-                filesToInflate.map(templateFilePath =>  //TODO: Only load files from disk when not already loaded from memory.
-                    new TemplateFile(
-                        this.data, 
-                        path.relative(templateAssetsDirectoryPath, templateFilePath),
-                        templateAssetsDirectoryPath,
-                        true
+                filesToInflate.map(templateFilePath =>
+                        new TemplateFile(
+                            this.data, 
+                            path.relative(templateAssetsDirectoryPath, templateFilePath),
+                            templateAssetsDirectoryPath,
+                            true
+                        )
                     )
-                )
+                    .filter(templateFile => !inMemoryFilesSet.has(templateFile.relativePath))
             )
             .concat(
                 otherFiles.map(noExpandFilePath => 
-                    new TemplateFile(
-                        this.data, 
-                        path.relative(templateAssetsDirectoryPath, noExpandFilePath),
-                        templateAssetsDirectoryPath,
-                        false
+                        new TemplateFile(
+                            this.data, 
+                            path.relative(templateAssetsDirectoryPath, noExpandFilePath),
+                            templateAssetsDirectoryPath,
+                            false
+                        )
                     )
-                )
+                    .filter(templateFile => !inMemoryFilesSet.has(templateFile.relativePath))
             );
     }
 
@@ -292,6 +309,18 @@ export class Template implements ITemplate {
         }
 
         return null;
+    }
+
+    /**
+     * Expand and export the template to a directory on disk.
+     * 
+     * @param outputPath The path of the directory export the template to.
+     */
+    async export(outputPath: string): Promise<void> {
+
+        for (const file of this.files) {
+            await file.export(outputPath);
+        }
     }
 }
 
@@ -378,9 +407,7 @@ export async function exportTemplate (templatePath: string, data: any, outputPat
     await fs.ensureDir(outputPath);
     
     const template = await inflateTemplate(templatePath, data, options);
-    for (const file of template.files) {
-        await file.export(outputPath);
-    }   
+    await template.export(outputPath);
 }
 
 // 
