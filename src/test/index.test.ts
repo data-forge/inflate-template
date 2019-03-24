@@ -378,4 +378,31 @@ describe('export', function (this: any) {
         const expanded = await templateFile.expand();
         expect(expanded).to.eql(fileContent);
     });
+
+    it("in memory file should override on disk file", async () => {
+
+        const fileName = "a file.txt";
+        const fileContent = "some-great-content";
+        const template = new Template("c:/test/my-template", {}, { 
+            inMemoryFiles: [
+                {
+                    file: fileName,
+                    content: fileContent,
+                }
+            ],
+        });
+
+        mockFs({
+            "c:/test/my-template": {
+                "assets": {
+                    "a file.txt": "not-this-content", // File already exists in file system.
+                },
+            },
+        });
+        
+        await template.readFiles();
+        const templateFile = template.find(fileName)!;
+        const expanded = await templateFile.expand();
+        expect(expanded).to.eql(fileContent);
+    });
 });

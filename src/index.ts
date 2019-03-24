@@ -175,17 +175,35 @@ export class Template implements ITemplate {
     //
     // Options to configure the template. 
     //
-    private options: IInflateOptions;
+    private options?: IInflateOptions;
 
     //
     // Files contained in the inflated template.
     //
     files: ITemplateFile[] = [];
 
-    constructor(templatePath: string, data: any, options: IInflateOptions) {
+    constructor(templatePath: string, data: any, options?: IInflateOptions) {
         this.templatePath = templatePath;
         this.data = data;
         this.options = options;
+    }
+
+    //
+    // Inflate files provided in memory.
+    //
+    private inflateInMemoryFiles(templateAssetsDirectoryPath: string): ITemplateFile[] {
+        return this.options && this.options.inMemoryFiles 
+            ? this.options.inMemoryFiles.map(inMemoryFile => 
+                new TemplateFile(
+                    this.data,
+                    inMemoryFile.file,
+                    templateAssetsDirectoryPath,
+                    true,
+                    inMemoryFile.content
+                )
+            )
+            : []
+            ;
     }
 
     //
@@ -237,17 +255,19 @@ export class Template implements ITemplate {
             );
         const filesToInflate = await globby(templateFileWildcards);
         const otherFiles = await globby(noExpandFileWildcards)
-        this.files = filesToInflate
-            .map(templateFilePath => 
-                new TemplateFile(
-                    this.data, 
-                    path.relative(templateAssetsDirectoryPath, templateFilePath),
-                    templateAssetsDirectoryPath,
-                    true
+        this.files = this.inflateInMemoryFiles(templateAssetsDirectoryPath)
+            .concat(
+                filesToInflate.map(templateFilePath =>  //TODO: Only load files from disk when not already loaded from memory.
+                    new TemplateFile(
+                        this.data, 
+                        path.relative(templateAssetsDirectoryPath, templateFilePath),
+                        templateAssetsDirectoryPath,
+                        true
+                    )
                 )
             )
-            .concat(otherFiles
-                .map(noExpandFilePath => 
+            .concat(
+                otherFiles.map(noExpandFilePath => 
                     new TemplateFile(
                         this.data, 
                         path.relative(templateAssetsDirectoryPath, noExpandFilePath),
@@ -255,18 +275,6 @@ export class Template implements ITemplate {
                         false
                     )
                 )
-            )
-            .concat(this.options.inMemoryFiles 
-                ? this.options.inMemoryFiles.map(inMemoryFile => 
-                    new TemplateFile(
-                        this.data,
-                        inMemoryFile.file,
-                        templateAssetsDirectoryPath,
-                        true,
-                        inMemoryFile.content
-                    )
-                )
-                : []
             );
     }
 
@@ -339,7 +347,7 @@ export interface IExportOptions extends IInflateOptions {
  * 
  * @returns An inflated template.
  */
-export async function inflateTemplate(templatePath: string, data: any, options: IInflateOptions): Promise<ITemplate> {
+export async function inflateTemplate(templatePath: string, data: any, options?: IInflateOptions): Promise<ITemplate> {
     const template = new Template(templatePath, data, options);
     await template.readFiles();
     return template;
@@ -354,10 +362,10 @@ export async function inflateTemplate(templatePath: string, data: any, options: 
  * @param outputPath The path to output expanded files to.
  * @param options Various options.
  */
-export async function exportTemplate (templatePath: string, data: any, outputPath: string, options: IExportOptions): Promise<void> {
+export async function exportTemplate (templatePath: string, data: any, outputPath: string, options?: IExportOptions): Promise<void> {
     const exists = await fs.pathExists(outputPath);
     if (exists) {
-        if (options.overwrite) {
+        if (options && options.overwrite) {
             if (options.clean) {
                 await fs.remove(outputPath); // Overwrite and clean.
             }
