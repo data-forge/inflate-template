@@ -131,10 +131,16 @@ export class TemplateFile implements ITemplateFile {
      * @param outputPath The path to output the file to.
      */
     async export(outputPath: string): Promise<void> {
-        const expandedContent = await this.expand();
         const fullOutputPath = path.join(outputPath, this.relativePath);
         await fs.ensureDir(path.dirname(fullOutputPath));
-        await promisify(fs.writeFile)(fullOutputPath, expandedContent);
+        if (!this.allowExpand) {
+            // If not expanding just copy the file.
+            await fs.copyFile(this.getFullPath(), fullOutputPath);
+        }
+        else {
+            const expandedContent = await this.expand();
+            await promisify(fs.writeFile)(fullOutputPath, expandedContent);
+        }
     }
 }
 
