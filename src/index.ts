@@ -27,7 +27,7 @@ export interface ITemplateFile {
     /**
      * Expand the files content filling in gaps with data.
      */
-    expand(): Promise<string>;
+    expand(): Promise<Buffer>;
 
     /**
      * Expand and output the file to the output path.
@@ -60,19 +60,19 @@ export class TemplateFile implements ITemplateFile {
     //
     // Content from the file once it has been loaded into memory.
     //
-    private fileContent?: string;
+    private fileContent?: Buffer;
 
     //
     // Expanded content afer it has been cached.
     //
-    private expandedContent?: string;
+    private expandedContent?: Buffer;
 
     /**
      * The name of the file.
      */
     readonly relativePath: string;
 
-    constructor(data: any, relativeFilePath: string, templateAssetsPath: string, allowExpand: boolean, fileContent?: string) {
+    constructor(data: any, relativeFilePath: string, templateAssetsPath: string, allowExpand: boolean, fileContent?: Buffer) {
         this.data = data;
         this.relativePath = relativeFilePath;
         this.templateAssetsPath = templateAssetsPath;
@@ -90,20 +90,20 @@ export class TemplateFile implements ITemplateFile {
     //
     // Load the file's content into memory (if not already loaded).
     //
-    private async loadContent(): Promise<string> {
+    private async loadContent(): Promise<Buffer> {
         if (this.fileContent) {
             // Already loaded.
             return this.fileContent;
         }
 
-        this.fileContent = await promisify(fs.readFile)(this.getFullPath(), 'utf8');
+        this.fileContent = await promisify(fs.readFile)(this.getFullPath());
         return this.fileContent!;
     }
 
     /**
      * Expand the files content filling in gaps with data.
      */
-    async expand(): Promise<string> {
+    async expand(): Promise<Buffer> {
         if (this.expandedContent) {
             // Content already expanded.
             return this.expandedContent; 
@@ -112,7 +112,7 @@ export class TemplateFile implements ITemplateFile {
         const fileContent = await this.loadContent();
         if (this.allowExpand) {
             try {
-                this.expandedContent = Handlebars.compile(fileContent)(this.data);
+                this.expandedContent = new Buffer(Handlebars.compile(fileContent.toString())(this.data));
             }
             catch (err) {
                 throw new Error("Error compiling template file '" + this.getFullPath() + "'.\r\n" + (err && err.stack || err));
@@ -152,7 +152,7 @@ export interface ITemplate {
     /**
      * Files contained in the inflated template.
      */
-    files: ITemplateFile[];
+    readonly files: ITemplateFile[];
 
     /**
      * Finds a file by name and returns it.
@@ -342,7 +342,7 @@ export interface IInMemoryFile {
     /**
      * The content of the file.
      */
-    content: string;
+    content: Buffer;
 }
 
 /**

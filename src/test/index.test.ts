@@ -338,7 +338,7 @@ describe('export', function (this: any) {
 
     it('can expand in memory file', async ()  => {
 
-        const fileContent = "some-great-content";
+        const fileContent = new Buffer("some-great-content");
         const templateFile = new TemplateFile({}, "c:/test/my-template/some-file.txt", "c:/test/my-template", true, fileContent);
         const expanded = await templateFile.expand();
         expect(expanded).to.eql(fileContent);
@@ -346,7 +346,7 @@ describe('export', function (this: any) {
 
     it('can expand in memory file with data', async ()  => {
 
-        const fileContent = "{{some}}";
+        const fileContent = new Buffer("{{some}}");
         const expandedContent = "my-expanded-data";
         const templateFile = new TemplateFile({ some: expandedContent }, "c:/test/my-template/some-file.txt", "c:/test/my-template", true, fileContent);
         const expanded = await templateFile.expand();
@@ -356,7 +356,7 @@ describe('export', function (this: any) {
     it("in memory files are expanded in the template", async () => {
 
         const fileName = "a file.txt";
-        const fileContent = "some-great-content";
+        const fileContent = new Buffer("some-great-content");
         const template = new Template("c:/test/my-template", {}, { 
             inMemoryFiles: [
                 {
@@ -382,7 +382,7 @@ describe('export', function (this: any) {
     it("in memory file should override on disk file", async () => {
 
         const fileName = "a file.txt";
-        const fileContent = "some-great-content";
+        const fileContent = new Buffer("some-great-content");
         const template = new Template("c:/test/my-template", {}, { 
             inMemoryFiles: [
                 {
@@ -409,7 +409,7 @@ describe('export', function (this: any) {
     it("in memory file should override exported file", async () => {
 
         const fileName = "a file.txt";
-        const fileContent = "some-great-content";
+        const fileContent = new Buffer("some-great-content");
         const exportPort = "c:/test/output";
         const template = new Template("c:/test/my-template", {}, { 
             inMemoryFiles: [
