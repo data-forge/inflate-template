@@ -19,7 +19,7 @@ A template is a directory that contains template files that will be inflated wit
 
 This repository contains an example template under the test-template directory. Please use this to understand the basics of how a template is constructed.
 
-A template can contain a template.json configuration file and a test-data.json. By convention files in the root directory or any other sub-directory other than the 'assets' sub-directory are not templates files, they can be configuration files, supporting files, build scripts, etc, but they are inflated as part of the template.
+A template can contain a template.json configuration file and a test-data.json. By convention files in the root directory or any other sub-directory other than the 'assets' sub-directory are not templates files, they can be configuration files, supporting files, build scripts, etc, but they are not inflated as part of the template.
 
 ## Programmatic Usage
 
@@ -81,4 +81,24 @@ To inflate and export a template:
 
 You can also add the `--overwrite` argument to overite an existing export.
 
+### Template configuration
 
+The file `template.json` can be used to configure a template:
+
+```json
+{
+    "expand": "**/*",
+    "noExpand": "node_modules/"
+}
+```
+
+All fields are optional.
+
+Fields can be arrays as well:
+
+```json
+{
+    "expand": ["src/**/*" ],
+    "noExpand": [ "dist/", "node_modules/" ]
+}
+```

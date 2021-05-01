@@ -34,7 +34,7 @@ export interface ITemplateFile {
      * 
      * @param outputPath The path to output the file to.
      */
-    export(outputPath: string): Promise<void>;
+    export(outputPath: string, options?: IExportOptions): Promise<void>;
 }
 
 //
@@ -130,20 +130,32 @@ export class TemplateFile implements ITemplateFile {
      * 
      * @param outputPath The path to output the file to.
      */
-    async export(outputPath: string): Promise<void> {
+    async export(outputPath: string, options?: IExportOptions): Promise<void> {
         const fullOutputPath = path.join(outputPath, this.relativePath);
         await fs.ensureDir(path.dirname(fullOutputPath));
         if (!this.allowExpand) {
+            if (options?.verbose) {
+                console.log(`Copying ${this.getFullPath()} to ${fullOutputPath}.`);
+            }
             // If not expanding just copy the file.
             await fs.copyFile(this.getFullPath(), fullOutputPath);
         }
         else {
+            if (options?.verbose) {
+                console.log(`Expanding ${this.getFullPath()} to ${fullOutputPath}.`);
+            }
             const expandedContent = await this.expand();
             await promisify(fs.writeFile)(fullOutputPath, expandedContent);
         }
     }
 }
 
+/**
+ * Lookup table for template files.
+ */
+export interface ITemplateMap {
+    [fileName: string]: ITemplateFile;
+}
 
 /**
  * Represents an inflated template.
@@ -152,7 +164,7 @@ export interface ITemplate {
     /**
      * Files contained in the inflated template.
      */
-    readonly files: ITemplateFile[];
+    readonly files: ITemplateMap;
 
     /**
      * Finds a file by name and returns it.
@@ -167,7 +179,7 @@ export interface ITemplate {
      * 
      * @param outputPath The path of the directory export the template to.
      */
-    export(outputPath: string): Promise<void>;
+    export(outputPath: string, options?: IExportOptions): Promise<void>;
 }
 
 //
@@ -193,7 +205,7 @@ export class Template implements ITemplate {
     //
     // Files contained in the inflated template.
     //
-    files: ITemplateFile[] = [];
+    files: ITemplateMap = {};
 
     constructor(templatePath: string, data: any, options?: IInflateOptions) {
         this.templatePath = templatePath;
@@ -237,10 +249,24 @@ export class Template implements ITemplate {
 
         const templateConfigFilePath = path.join(this.templatePath, "template.json");
         const templateConfigFileExists = await fs.pathExists(templateConfigFilePath);
+        let expandWildcard: string[];
         let noExpandWildcard: string[];
         if (templateConfigFileExists) {
             const templateConfigContent = await promisify(fs.readFile)(templateConfigFilePath, "utf8");
             const templateConfig = JSON.parse(templateConfigContent);
+            if (templateConfig.expand) {
+                if (Array.isArray(templateConfig.expand)) {
+                    expandWildcard = templateConfig.expand;
+                }
+                else {
+                    expandWildcard = [ templateConfig.expand ];
+                }
+
+            }
+            else {
+                expandWildcard = ["**/*"];
+            }
+
             if (templateConfig.noExpand) {
                 if (Array.isArray(templateConfig.noExpand)) {
                     noExpandWildcard = templateConfig.noExpand;
@@ -254,20 +280,24 @@ export class Template implements ITemplate {
             }
         }
         else {
+            expandWildcard = ["**/*"];
             noExpandWildcard = [];
         }
 
-        const templateFileWildcard = path.join(templateAssetsDirectoryPath, "**/*");
+        const expandWildcards = expandWildcard
+            .map(wildcard => 
+                path.join(templateAssetsDirectoryPath, wildcard)
+            ); 
         const noExpandFileWildcards = noExpandWildcard
             .map(wildcard => 
                 path.join(templateAssetsDirectoryPath, wildcard)
             );
-        const templateFileWildcards = [ templateFileWildcard ]
+        const templateFileWildcards = expandWildcards
             .concat(noExpandFileWildcards
                 .map(wildcard => "!" + wildcard)
             );
         const filesToInflate = await globby(templateFileWildcards);
-        const otherFiles = await globby(noExpandFileWildcards)
+        const allFiles = await globby(path.join(templateAssetsDirectoryPath, "**/*"));
         
         const inMemoryFilesSet = new Set<string>();
         if (this.options && this.options.inMemoryFiles) {
@@ -276,29 +306,33 @@ export class Template implements ITemplate {
             }
         }
 
-        this.files = this.inflateInMemoryFiles(templateAssetsDirectoryPath)
-            .concat(
-                filesToInflate.map(templateFilePath =>
-                        new TemplateFile(
-                            this.data, 
-                            path.relative(templateAssetsDirectoryPath, templateFilePath),
-                            templateAssetsDirectoryPath,
-                            true
-                        )
-                    )
-                    .filter(templateFile => !inMemoryFilesSet.has(templateFile.relativePath))
-            )
-            .concat(
-                otherFiles.map(noExpandFilePath => 
-                        new TemplateFile(
-                            this.data, 
-                            path.relative(templateAssetsDirectoryPath, noExpandFilePath),
-                            templateAssetsDirectoryPath,
-                            false
-                        )
-                    )
-                    .filter(templateFile => !inMemoryFilesSet.has(templateFile.relativePath))
+        for (const inMemoryFile of this.inflateInMemoryFiles(templateAssetsDirectoryPath)) {
+            this.files[inMemoryFile.relativePath] = inMemoryFile;
+        }
+
+        for (const templateFilePath of filesToInflate) {
+            const templateFile = new TemplateFile(
+                this.data, 
+                path.relative(templateAssetsDirectoryPath, templateFilePath),
+                templateAssetsDirectoryPath,
+                true
             );
+            if (!this.files[templateFile.relativePath]) {
+                this.files[templateFile.relativePath] = templateFile;
+            }
+        }
+
+        for (const templateFilePath of allFiles) {
+            const templateFile = new TemplateFile(
+                this.data, 
+                path.relative(templateAssetsDirectoryPath, templateFilePath),
+                templateAssetsDirectoryPath,
+                false
+            );
+            if (!this.files[templateFile.relativePath]) {
+                this.files[templateFile.relativePath] = templateFile;
+            }
+        }
     }
 
     /**
@@ -307,14 +341,8 @@ export class Template implements ITemplate {
      * 
      * @param fileName Name of the file to find.
      */
-    find(fileName: string): ITemplateFile | null { //TODO: Optimize this lookup!
-        for (const file of this.files) {
-            if (file.relativePath === fileName) {
-                return file;
-            }
-        }
-
-        return null;
+    find(fileName: string): ITemplateFile | null {
+        return this.files[fileName];
     }
 
     /**
@@ -322,10 +350,11 @@ export class Template implements ITemplate {
      * 
      * @param outputPath The path of the directory export the template to.
      */
-    async export(outputPath: string): Promise<void> {
+    async export(outputPath: string, options?: IExportOptions): Promise<void> {
 
-        for (const file of this.files) {
-            await file.export(outputPath);
+        for (const relativeFilePath of Object.keys(this.files)) {
+            const file = this.files[relativeFilePath];
+            await file.export(outputPath, options);
         }
     }
 }
@@ -360,6 +389,11 @@ export interface IInflateOptions {
  * Options for exporting a template.
  */
 export interface IExportOptions extends IInflateOptions {
+
+    /***
+     * Set to true to enable verbose mode.
+     */
+    verbose?: boolean;
 
     /**
      * Set to true to clean the existing export directory before writting the new one.
@@ -413,7 +447,7 @@ export async function exportTemplate (templatePath: string, data: any, outputPat
     await fs.ensureDir(outputPath);
     
     const template = await inflateTemplate(templatePath, data, options);
-    await template.export(outputPath);
+    await template.export(outputPath, options);
 }
 
 // 

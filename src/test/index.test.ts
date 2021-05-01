@@ -69,7 +69,7 @@ describe('export', function (this: any) {
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
 
-        expect(template.files.length).to.eql(0);
+        expect(template.files).to.eql({});
     });
 
     it('can inflate one file in memory', async ()  => {
@@ -89,11 +89,13 @@ describe('export', function (this: any) {
         };
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
-        expect(template.files.length).to.eql(1);
-        expect(template.files[0].relativePath).to.eql("some-file.txt");
+
+        const templateFile = template.files["some-file.txt"];
+        expect(templateFile).to.not.be.undefined;
+        expect(templateFile.relativePath).to.eql("some-file.txt");
         
-        const fileContent = await template.files[0].expand();
-        expect(fileContent).to.eql(testFileContent);
+        const fileContent = await templateFile.expand();
+        expect(fileContent.toString()).to.eql(testFileContent);
     });
 
     it('can inflate multiple files in memory', async ()  => {
@@ -115,15 +117,20 @@ describe('export', function (this: any) {
         };
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
-        expect(template.files.length).to.eql(2);
-        expect(template.files[0].relativePath).to.eql("some-file-1.txt");
-        expect(template.files[1].relativePath).to.eql("some-file-2.txt");
-        
-        const fileContent1 = await template.files[0].expand();
-        expect(fileContent1).to.eql(testFileContent1);
 
-        const fileContent2 = await template.files[1].expand();
-        expect(fileContent2).to.eql(testFileContent2);
+        const templateFile1 = template.files["some-file-1.txt"];
+        expect(templateFile1).to.not.be.undefined;
+        expect(templateFile1.relativePath).to.eql("some-file-1.txt");
+        
+        const fileContent1 = await templateFile1.expand();
+        expect(fileContent1.toString()).to.eql(testFileContent1);
+
+        const templateFile2 = template.files["some-file-2.txt"];
+        expect(templateFile2).to.not.be.undefined;
+        expect(templateFile2.relativePath).to.eql("some-file-2.txt");
+        
+        const fileContent2 = await templateFile2.expand();
+        expect(fileContent2.toString()).to.eql(testFileContent2);
     });
     
     it('can expand a particular named file', async ()  => {
@@ -143,9 +150,9 @@ describe('export', function (this: any) {
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
         const file = template.find("file-1.txt");
-        expect(file).not.to.be.null;
+        expect(file).not.to.be.undefined;
         const expandedContent = await file!.expand();
-        expect(expandedContent).to.eql("f1");
+        expect(expandedContent.toString()).to.eql("f1");
     });
 
     it('finding a non-existing file returns null', async ()  => {
@@ -164,7 +171,7 @@ describe('export', function (this: any) {
         };
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
-        expect(template.find("non-existing-file.txt")).to.be.null;
+        expect(template.find("non-existing-file.txt")).to.be.undefined;
     });
 
     it('can inflate nested files in memory', async ()  => {
@@ -186,11 +193,13 @@ describe('export', function (this: any) {
         };
 
         const template = await inflateTemplate("c:/test/a-template", data, options);
-        expect(template.files.length).to.eql(1);
-        expect(template.files[0].relativePath).to.eql("some-dir\\some-nested-file.txt");
+
+        const templateFile = template.files['some-dir\\some-nested-file.txt'];
+        expect(templateFile).to.not.be.undefined;
+        expect(templateFile.relativePath).to.eql("some-dir\\some-nested-file.txt");
         
-        const fileContent1 = await template.files[0].expand();
-        expect(fileContent1).to.eql(testFileContent);
+        const fileContent1 = await templateFile.expand();
+        expect(fileContent1.toString()).to.eql(testFileContent);
     });
 
     it('can expand template', async ()  => {
@@ -210,9 +219,11 @@ describe('export', function (this: any) {
         };
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
-        expect(template.files.length).to.eql(1);
-        const fileContent = await template.files[0].expand();
-        expect(fileContent).to.eql("some excellent content!!");
+        const templateFile = template.files["some-file.txt"];
+        expect(templateFile).to.not.be.undefined;
+
+        const fileContent = await templateFile.expand();
+        expect(fileContent.toString()).to.eql("some excellent content!!");
     });
 
     it('can expand template with template config', async ()  => {
@@ -233,9 +244,11 @@ describe('export', function (this: any) {
         };
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
-        expect(template.files.length).to.eql(1);
-        const fileContent = await template.files[0].expand();
-        expect(fileContent).to.eql("some excellent content!!");
+
+        const templateFile = template.files["some-file.txt"];
+
+        const fileContent = await templateFile.expand();
+        expect(fileContent.toString()).to.eql("some excellent content!!");
     });
 
     it('can request files to not be expanded', async ()  => {
@@ -258,9 +271,12 @@ describe('export', function (this: any) {
         };
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
-        expect(template.files.length).to.eql(1);
-        const fileContent = await template.files[0].expand();
-        expect(fileContent).to.eql(testFileContent);
+
+        const templateFile = template.files["_no_expand_\\some-file.txt"];
+        expect(templateFile).to.not.be.undefined;
+
+        const fileContent = await templateFile.expand();
+        expect(fileContent.toString()).to.eql(testFileContent);
     });
 
     it('can request array of files to not be expanded', async ()  => {
@@ -286,13 +302,18 @@ describe('export', function (this: any) {
         };
 
         const template = await inflateTemplate("c:/test/my-template", data, options);
-        expect(template.files.length).to.eql(2);
 
-        const fileContent1 = await template.files[0].expand();
-        expect(fileContent1).to.eql(testFileContent);
+        const templateFile1 = template.files["_no_expand1_\\some-file.txt"];
+        expect(templateFile1).to.not.be.undefined;
 
-        const fileContent2 = await template.files[1].expand();
-        expect(fileContent2).to.eql(testFileContent);
+        const fileContent1 = await templateFile1.expand();
+        expect(fileContent1.toString()).to.eql(testFileContent);
+
+        const templateFile2 = template.files["_no_expand2_\\some-file.txt"];
+        expect(templateFile2).to.not.be.undefined;
+
+        const fileContent2 = await templateFile2.expand();
+        expect(fileContent2.toString()).to.eql(testFileContent);
     });
 
     it('error when output to directory that already exists', async ()  => {
@@ -350,7 +371,7 @@ describe('export', function (this: any) {
         const expandedContent = "my-expanded-data";
         const templateFile = new TemplateFile({ some: expandedContent }, "c:/test/my-template/some-file.txt", "c:/test/my-template", true, fileContent);
         const expanded = await templateFile.expand();
-        expect(expanded).to.eql(expandedContent);
+        expect(expanded.toString()).to.eql(expandedContent);
     });
 
     it("in memory files are expanded in the template", async () => {
@@ -433,7 +454,8 @@ describe('export', function (this: any) {
 
         await template.readFiles();
 
-        expect(template.files.length).to.eql(1);
-        expect(await template.files[0].expand()).to.eql(fileContent);
+        const templateFile = template.files["a file.txt"];
+        expect(templateFile).to.not.be.undefined;
+        expect(await templateFile.expand()).to.eql(fileContent);
     });
 });
