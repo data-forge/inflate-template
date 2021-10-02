@@ -5,6 +5,8 @@ This library is responsible for inflating a template with data.
 It provides the 'export' functionality for [Data-Forge Plot](https://www.npmjs.com/package/data-forge-plot) and
 [Data-Forge Notebook](http://www.data-forge-notebook.com/).
 
+[Click here to support my work](https://www.codecapers.com.au/about#support-my-work)
+
 ## Premise
 
 A template is any number of assets (text files, JS files, HTML files, etc) in a directory. Each asset is a Handlebars template that can be expanded by data.
